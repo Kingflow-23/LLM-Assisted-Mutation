@@ -4,16 +4,20 @@ from openai import OpenAI
 LMSTUDIO_BASE_URL = "http://localhost:1234/v1"
 LMSTUDIO_MODEL_NAME = "local-model"  # name is arbitrary in LM Studio
 
+
 def get_lmstudio_client():
     """
     Returns an OpenAI-compatible client connected to LM Studio local server.
     """
     return OpenAI(
         base_url=LMSTUDIO_BASE_URL,
-        api_key="lm-studio"  # dummy value (LM Studio ignores it)
+        api_key="lm-studio",  # dummy value (LM Studio ignores it)
     )
-    
-def call_lmstudio_mutation(original_prompt: str, target_response: str, temperature: float = 0.7) -> str:
+
+
+def call_lmstudio_mutation(
+    original_prompt: str, target_response: str, temperature: float = 0.7
+) -> str:
     """
     Calls the LM Studio local model to generate a mutated attack prompt.
 
