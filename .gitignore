@@ -1,0 +1,5 @@
+*.docx
+*.pdf
+
+docs/*
+llama-b7947-bin-win-cpu-x64/*
