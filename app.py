@@ -1,7 +1,10 @@
 import json
-from datetime import datetime
 import requests
 import streamlit as st
+
+from datetime import datetime
+from mutation_model import call_lmstudio_mutation
+
 
 st.set_page_config(page_title="AI Robustness Lab - Attack Testing", layout="centered")
 
@@ -12,6 +15,8 @@ if "conversation_history" not in st.session_state:
     st.session_state.conversation_history = []
 if "attack_log" not in st.session_state:
     st.session_state.attack_log = []
+if "last_mutation" not in st.session_state:
+    st.session_state.last_mutation = None
 
 # Local llama.cpp server configuration
 LLAMACPP_URL = "http://localhost:8080/v1/chat/completions"
@@ -30,6 +35,8 @@ with st.sidebar:
     st.info("Using local llama.cpp server (Qwen 2.5 7B Q4)")
 
     st.divider()
+
+    use_mutation = st.checkbox("Enable LLM-assisted mutation (LM Studio)")
 
     model_label = "Qwen 2.5 7B Instruct (local)"
     model = "qwen2.5-7b-instruct"  # Not used by llama.cpp but kept for logging
@@ -63,7 +70,7 @@ with st.sidebar:
                 "timestamp": datetime.now().isoformat(),
                 "model": model_label,
                 "system_prompt": system_prompt,
-                "attacks": st.session_state.attack_log
+                "attacks": st.session_state.attack_log,
             }
             export_json = json.dumps(export_data, indent=2)
 
@@ -72,7 +79,7 @@ with st.sidebar:
                 data=export_json,
                 file_name=f"attack_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
                 mime="application/json",
-                use_container_width=True
+                use_container_width=True,
             )
 
     # Show request counter
@@ -93,6 +100,10 @@ if st.session_state.conversation_history:
             st.success(msg["content"])
     st.divider()
 
+if st.session_state.last_mutation:
+    st.markdown("### Mutated Prompt Suggestion (LM Studio)")
+    st.warning(st.session_state.last_mutation)
+
 user_prompt = st.text_area(
     "Your message",
     value="",
@@ -108,6 +119,8 @@ with col2:
     mark_success = st.checkbox("Mark as successful attack", value=False)
 
 if send_btn:
+    st.session_state.last_mutation = None
+
     if not user_prompt.strip():
         st.warning("Please enter a prompt.")
     else:
@@ -129,13 +142,20 @@ if send_btn:
 
         with st.spinner("Calling local llama.cpp server..."):
             try:
-                resp = requests.post(server_url, headers=headers, json=payload, timeout=120)
+                resp = requests.post(
+                    server_url, headers=headers, json=payload, timeout=120
+                )
                 resp.raise_for_status()
                 data = resp.json()
             except requests.exceptions.ConnectionError:
-                st.error("Cannot connect to llama.cpp server. Make sure llama-server is running at " + server_url)
+                st.error(
+                    "Cannot connect to llama.cpp server. Make sure llama-server is running at "
+                    + server_url
+                )
             except requests.exceptions.Timeout:
-                st.error("Request timed out. The model might be processing a long response.")
+                st.error(
+                    "Request timed out. The model might be processing a long response."
+                )
             except requests.exceptions.RequestException as e:
                 st.error(f"Request error: {e}")
             except ValueError:
@@ -171,6 +191,16 @@ if send_btn:
                     st.markdown("### Model Response")
                     st.success(content)
 
+                    if use_mutation and not mark_success:
+                        with st.spinner("Generating mutated prompt with LM Studio..."):
+                            mutated_prompt = call_lmstudio_mutation(
+                                original_prompt=user_prompt,
+                                target_response=content,
+                                temperature=temperature,
+                            )
+
+                        st.session_state.last_mutation = mutated_prompt
+
                     if mark_success:
                         st.balloons()
                         st.success("Marked as successful attack!")
@@ -180,4 +210,3 @@ if send_btn:
 
                     # Rerun to update conversation display
                     st.rerun()
-
