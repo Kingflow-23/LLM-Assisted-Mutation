@@ -24,16 +24,27 @@ In this implementation:
 ## 🧠 Architecture
 
 User Prompt
+
 │
+
 ▼
+
 Target Model (Local LLM via llama.cpp)
+
 │
+
 ├── Refusal? → YES → Send to Mutation Model (Mistral via LM Studio)
+
 │ │
+
 │ ▼
+
 │ Generate Mutated Prompt
+
 │ │
+
 ▼ ▼
+
 Log Response <────────────── Re-test Target Model
 
 
